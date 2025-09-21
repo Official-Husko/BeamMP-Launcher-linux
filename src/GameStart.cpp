@@ -148,7 +148,13 @@ void StartGame(std::wstring Dir) {
 
     debug(L"BeamNG executable path: " + Dir);
 
-    bSuccess = CreateProcessW(nullptr, (wchar_t*)(Dir + gameArgs).c_str(), nullptr, nullptr, TRUE, 0, nullptr, BaseDir.c_str(), &si, &pi);
+    wchar_t* lpApplicationName = Dir.data();
+    wchar_t* lpCommandLine = (Dir + gameArgs).data();
+
+    debug(L"lpApplicationName: " + std::wstring(lpApplicationName));
+    debug(L"lpCommandLine: " + std::wstring(lpCommandLine));
+
+    bSuccess = CreateProcessW(lpApplicationName, lpCommandLine, nullptr, nullptr, TRUE, 0, nullptr, BaseDir.c_str(), &si, &pi);
     if (bSuccess) {
         info("Game Launched!");
         GamePID = pi.dwProcessId;
