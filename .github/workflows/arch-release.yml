@@ -26,7 +26,7 @@ jobs:
         run: |
           set -euxo pipefail
           pacman -Syu --noconfirm
-          pacman -S --noconfirm base-devel cmake gcc git ninja pkgconf curl unzip tar
+          pacman -S --noconfirm base-devel cmake gcc git ninja pkgconf curl zip unzip tar
 
       - name: Checkout
         uses: actions/checkout@v4
