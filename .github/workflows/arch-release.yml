@@ -1,0 +1,87 @@
+name: Arch Linux Build & Release (BeamMP-Launcher)
+
+on:
+  push:
+    tags:
+      - "v*.*.*" # e.g. v2.3.2
+  workflow_dispatch: {} # allow manual runs too
+
+permissions:
+  contents: write # required to create releases
+
+env:
+  VCPKG_ROOT: /opt/vcpkg
+  VCPKG_TARGET_TRIPLET: x64-linux
+  CMAKE_BUILD_TYPE: Release
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+
+    steps:
+      - name: Install deps (Arch)
+        shell: bash
+        run: |
+          set -euxo pipefail
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm base-devel cmake gcc git ninja pkgconf curl unzip tar
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: true
+
+      - name: Install/Bootstrap vcpkg
+        shell: bash
+        run: |
+          set -euxo pipefail
+          if [ ! -d "${VCPKG_ROOT}" ]; then
+            git clone --depth 1 https://github.com/microsoft/vcpkg.git "${VCPKG_ROOT}"
+          fi
+          "${VCPKG_ROOT}/bootstrap-vcpkg.sh"
+
+      # ---- Configure & build per your docs ----
+      - name: Configure (CMake into ./bin using vcpkg toolchain)
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cmake . -B bin \
+            -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE="${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" \
+            -DVCPKG_TARGET_TRIPLET="${VCPKG_TARGET_TRIPLET}" \
+            -DCMAKE_BUILD_TYPE="${CMAKE_BUILD_TYPE}"
+
+      - name: Build
+        shell: bash
+        run: |
+          set -euxo pipefail
+          cmake --build bin --parallel
+
+      # Keep an artifact for PRs/manual runs too
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bin-${{ github.ref_name }}
+          path: bin
+          if-no-files-found: error
+
+      # ---- Release only when the ref is a tag ----
+      - name: Tar bin/ for release
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: |
+          set -euxo pipefail
+          tar -czf bin-${{ github.ref_name }}.tar.gz -C bin .
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            bin-${{ github.ref_name }}.tar.gz
+          draft: false
+          prerelease: false
+          generate_release_notes: true
